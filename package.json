@@ -1,0 +1,31 @@
+{
+  "name": "api-proxy",
+  "version": "1.0.0",
+  "description": "",
+  "author": "",
+  "license": "GPL",
+  "homepage": "https://github.com/Postways/API-Proxy",
+  "main": "src/index.js",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com:Postways/API-Proxy.git"
+  },
+  "scripts": {
+    "watch": "babel -w src -d dist",
+    "build": "babel src -d dist",
+    "start": "nodemon src/index.js --exec babel-node --presets env",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.15.3",
+    "jsonschema": "^1.1.1",
+    "lodash": "^4.17.4"
+  },
+  "devDependencies": {
+    "babel": "^6.23.0",
+    "babel-cli": "^6.24.1",
+    "babel-preset-env": "^1.6.0",
+    "babel-register": "^6.11.6",
+    "nodemon": "^1.11.0"
+  }
+}
