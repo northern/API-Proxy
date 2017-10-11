@@ -1,4 +1,5 @@
 
+import _ from 'lodash';
 import dotenv from 'dotenv';
 import https from 'https';
 import express from 'express';
@@ -24,15 +25,34 @@ const config = {
   }
 };
 
-console.log("Found configuration:", config);
+console.log("Configuration found:", config);
 
-const rsmq = new RedisMQ({url:config.redis.url, ns: "postways"});
+if (!config.postways.apiKey) {
+  console.error("Missing required environment variable: POSTWAYS_APIKEY");
+  process.exit(1);
+}
+
+if (!config.redis.url) {
+  console.error("Missing required environment variable: REDIS_URL");
+  process.exit(1);
+}
+
+const rsmq = new RedisMQ({
+  url: config.redis.url, 
+  ns: "postways"
+});
 
 rsmq.createQueue({qname:"transmissions"}, (error, resp) => {
-  console.log(arguments);
-  if (resp === 1) {
-    console.log("queue created")
+  // TODO: How to correctly handle errors here?
+  
+  /*
+  console.log(error);
+  console.log(resp);
+  if (!_.isEmpty(error)) {
+    console.error("Error. Queue could not be created.");
+    process.exit(1);
   }
+  */
 });
 
 const workers = [];
@@ -40,12 +60,10 @@ const workers = [];
 for (var i = 0; i < config.apiproxy.workers; i++) {
   var worker = new RedisMQWorker("transmissions", {rsmq:rsmq});
 
-  worker.on("message", (msg, next, id) => {
-    // process your message
-    console.log(`Message id : ${id}`);
-    var data = msg; //+"xyz"; //JSON.parse(msg);
-    //console.log(msg);
+  worker.on("message", (data, next, id) => {
+    console.log(`Received message Id: ${id}`);
 
+    // Prepare HTTP request parameters.
     var params = {
       host: 'api.postways.com',
       path: '/transmissions',
@@ -57,7 +75,6 @@ for (var i = 0; i < config.apiproxy.workers; i++) {
         'Content-Length': Buffer.byteLength(data)
       }
     };
-    //console.log(params);
 
     const request = https.request(params, (response) => {
       console.log('statusCode:', response.statusCode);
@@ -78,7 +95,7 @@ for (var i = 0; i < config.apiproxy.workers; i++) {
     request.write(data);
     request.end(function(result) {
       console.log("Request end");
-      console.log(arguments);
+      //console.log(arguments);
 
       next();
     });
@@ -109,8 +126,6 @@ app.get('/', (request, response) => {
 });
 
 app.post('/transmissions', (request, response) => {
-  //console.log(request.body);
-
   rsmq.sendMessage({qname:"transmissions", message:JSON.stringify(request.body)}, (error, messageId) => {
     if (messageId) {
       console.log(`Message sent. ID: ${messageId}`);
@@ -118,13 +133,13 @@ app.post('/transmissions', (request, response) => {
       response.status(202).send("OK");
     }
   });
-  
 });
 
 app.listen(config.apiproxy.port, (error) => {
   if (error) {
-    return console.error('something bad happened', error)
+    console.error(`Error. Unable to start server: ${error}`);
+    process.exit(1);
   }
 
-  console.log(`HTTP Server is listening on port ${config.apiproxy.port}`)
+  console.log(`HTTP Server is listening on port ${config.apiproxy.port}`);
 });
